@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2Embed Stream Resolver</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loader.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .result-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .result-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .result-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            word-break: break-all;
+            border-left: 4px solid #667eea;
+        }
+
+        .error {
+            background: #fee;
+            border-left-color: #f44;
+            color: #c33;
+        }
+
+        .empty {
+            color: #999;
+            font-style: italic;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Stream Resolver</h1>
+        <p class="subtitle">Resolve 2Embed stream URLs to get direct video sources</p>
+
+        <div class="input-group">
+            <label for="urlInput">Enter 2Embed URL:</label>
+            <input 
+                type="text" 
+                id="urlInput" 
+                placeholder="https://www.2embed.cc/embed/..."
+                value="">
+        </div>
+
+        <button id="resolveBtn" onclick="resolveStream()">Resolve Stream</button>
+
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #667eea;">Resolving stream...</p>
+        </div>
+
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        async function resolveStream() {
+            const urlInput = document.getElementById('urlInput');
+            const url = urlInput.value.trim();
+            const loader = document.getElementById('loader');
+            const result = document.getElementById('result');
+            const resolveBtn = document.getElementById('resolveBtn');
+
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+
+            // Show loader
+            loader.classList.add('active');
+            result.classList.remove('active');
+            resolveBtn.disabled = true;
+
+            try {
+                const response = await fetch('/resolve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+
+                // Hide loader
+                loader.classList.remove('active');
+                resolveBtn.disabled = false;
+
+                // Display results
+                displayResults(data);
+            } catch (error) {
+                loader.classList.remove('active');
+                resolveBtn.disabled = false;
+                result.innerHTML = `
+                    <div class="result-section">
+                        <div class="result-item error">
+                            <strong>Error:</strong> ${error.message}
+                        </div>
+                    </div>
+                `;
+                result.classList.add('active');
+            }
+        }
+
+        function displayResults(data) {
+            const result = document.getElementById('result');
+            
+            if (!data.success) {
+                result.innerHTML = `
+                    <div class="result-section">
+                        <div class="result-item error">
+                            <strong>Error:</strong> ${data.error}
+                        </div>
+                    </div>
+                `;
+                result.classList.add('active');
+                return;
+            }
+
+            let html = '';
+
+            // Video Sources
+            html += '<div class="result-section">';
+            html += '<h3>📹 Video Sources</h3>';
+            if (data.video_sources && data.video_sources.length > 0) {
+                data.video_sources.forEach((src, index) => {
+                    html += `
+                        <div class="result-item">
+                            <strong>Source ${index + 1}:</strong><br>
+                            ${src}
+                            <button class="copy-btn" onclick="copyToClipboard('${src.replace(/'/g, "\\'")}')">Copy</button>
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div class="result-item empty">No video sources found</div>';
+            }
+            html += '</div>';
+
+            // Iframe URLs
+            html += '<div class="result-section">';
+            html += '<h3>🖼️ IFrame URLs</h3>';
+            if (data.iframe_urls && data.iframe_urls.length > 0) {
+                data.iframe_urls.forEach((src, index) => {
+                    html += `
+                        <div class="result-item">
+                            <strong>IFrame ${index + 1}:</strong><br>
+                            ${src}
+                            <button class="copy-btn" onclick="copyToClipboard('${src.replace(/'/g, "\\'")}')">Copy</button>
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div class="result-item empty">No iframes found</div>';
+            }
+            html += '</div>';
+
+            // Stream URLs
+            html += '<div class="result-section">';
+            html += '<h3>🎥 Stream URLs (m3u8/mp4)</h3>';
+            if (data.streams && data.streams.length > 0) {
+                data.streams.forEach((src, index) => {
+                    html += `
+                        <div class="result-item">
+                            <strong>Stream ${index + 1}:</strong><br>
+                            ${src}
+                            <button class="copy-btn" onclick="copyToClipboard('${src.replace(/'/g, "\\'")}')">Copy</button>
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div class="result-item empty">No streams detected</div>';
+            }
+            html += '</div>';
+
+            result.innerHTML = html;
+            result.classList.add('active');
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied to clipboard!');
+            }).catch(err => {
+                alert('Failed to copy: ' + err);
+            });
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                resolveStream();
+            }
+        });
+    </script>
+</body>
+</html>
